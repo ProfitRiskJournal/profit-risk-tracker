@@ -1,1 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>5% Compounding Trade Tracker</title>
+  <style>
+    :root{
+      --bg:#0f1115;--panel:#171a21;--ink:#e9edf1;--muted:#9aa4b2;--accent:#59d185;--danger:#ff6b6b;--warn:#ffd166;--ring:#2a2f3a;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#0f1115,#11151b);color:var(--ink)}
+    .wrap{max-width:960px;margin:32px auto;padding:24px}
+    .card{background:var(--panel);border:1px solid var(--ring);border-radius:16px;padding:20px;box-shadow:0 10px 24px rgba(0,0,0,.3)}
+    h1{font-size:clamp(20px,3vw,28px);margin:0 0 12px}
+    p.lead{color:var(--muted);margin:4px 0 16px}
+    .grid{display:grid;gap:12px}
+    .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type="number"],input[type="text"]{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--ring);background:#0e1218;color:var(--ink);outline:none}
+    input:focus{border-color:#6bcfa2;box-shadow:0 0 0 3px rgba(89,209,133,.15)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--ring);background:#121720;color:var(--ink);padding:12px 16px;border-radius:12px;cursor:pointer;font-weight:600}
+    .btn:hover{filter:brightness(1.1)}
+    .btn:active{transform:translateY(1px)}
+    .btn-primary{background:var(--accent);color:#0d1b12;border-color:#5fe59b}
+    .btn-danger{background:var(--danger);color:#200}
+    .btn-ghost{background:transparent}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid var(--ring);color:var(--muted);font-size:12px}
+    .stat{background:#0e1218;border:1px solid var(--ring);border-radius:14px;padding:14px}
+    .stat b{font-size:20px}
+    .muted{color:var(--muted)}
+    .footer{margin-top:14px;color:var(--muted);font-size:12px}
+    table{width:100%;border-collapse:collapse;border-spacing:0;margin-top:8px}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--ring);text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    tbody tr:last-child td{border-bottom:none}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .kpi{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}
+    .kpi .stat{min-height:78px}
+    .badge{font-weight:700}
+    @media (max-width:760px){
+      .grid.cols-4{grid-template-columns:1fr 1fr}
+      .kpi{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>5% Compounding Trade Tracker</h1>
+      <p class="lead">Tap <span class="badge">WIN</span> or <span class="badge">LOSS</span>. The tracker updates your balance, win rate, and shows the <em>next trade</em> risk (5%) and profit target (2R ⇒ 10%) automatically. All fields are adjustable.</p>
+
+      <div class="grid cols-4">
+        <div>
+          <label for="startingBalance">Starting Balance ($)</label>
+          <input id="startingBalance" type="number" step="0.01" min="0" value="100" />
+        </div>
+        <div>
+          <label for="riskPct">Risk % per Trade</label>
+          <input id="riskPct" type="number" step="0.01" min="0" value="5" />
+        </div>
+        <div>
+          <label for="rMultiple">R Multiple (TP = R × multiple)</label>
+          <input id="rMultiple" type="number" step="0.1" min="0" value="2" />
+        </div>
+        <div>
+          <label for="commission">Commission / Fees per Trade ($)</label>
+          <input id="commission" type="number" step="0.01" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-primary" id="apply">Apply / Reset to Starting Balance</button>
+        <button class="btn btn-ghost" id="resetHistory" title="Clears history but keeps current balance">Clear History</button>
+      </div>
+
+      <div class="kpi">
+        <div class="stat"><div class="muted">Current Balance</div><b id="curBal">$100.00</b></div>
+        <div class="stat"><div class="muted">Next Trade Risk (−)</div><b id="nextRisk">$5.00</b></div>
+        <div class="stat"><div class="muted">Next Profit Target (+)</div><b id="nextProfit">$10.00</b></div>
+        <div class="stat"><div class="muted">Last Result</div><b id="lastRes">—</b></div>
+        <div class="stat"><div class="muted">Win Rate</div><b id="winRate">0%</b></div>
+      </div>
+
+      <div class="actions" style="margin-top:14px">
+        <button class="btn btn-primary" id="winBtn">✅ WIN (Goal Hit)</button>
+        <button class="btn btn-danger" id="lossBtn">❌ LOSS</button>
+      </div>
+
+      <div class="pill" style="margin-top:12px">
+        <span>Risk uses <b id="riskPctEcho">5%</b> of <b>current equity</b>. Profit target = <b id="tpEcho">2R</b> (10%). Fees apply after the result.</span>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2 style="margin:0 0 6px;font-size:18px">Trade History</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Result</th>
+              <th>Risk $</th>
+              <th>P/L $</th>
+              <th>Fee $</th>
+              <th>Balance →</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+        <div class="footer">Tip: Your data auto-saves in this browser (localStorage). Use “Apply / Reset” to start from a new balance.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const fmt = (n)=> n.toLocaleString(undefined,{style:'currency',currency:'USD'});
+
+    const state = {
+      balance: 100,
+      riskPct: 5,
+      rMultiple: 2,
+      fee: 0,
+      tradeCount: 0,
+      lastResult: null,
+      history: [],
+    };
+
+    const saved = localStorage.getItem('compounding-5-state');
+    if(saved){ try{ Object.assign(state, JSON.parse(saved)); }catch(_){} }
+
+    const curBal = $('curBal');
+    const nextRisk = $('nextRisk');
+    const nextProfit = $('nextProfit');
+    const lastRes = $('lastRes');
+    const historyBody = $('historyBody');
+    const winRateEl = $('winRate');
+
+    const startingBalance = $('startingBalance');
+    const riskPct = $('riskPct');
+    const rMultiple = $('rMultiple');
+    const commission = $('commission');
+    const riskPctEcho = $('riskPctEcho');
+    const tpEcho = $('tpEcho');
+
+    function save(){ localStorage.setItem('compounding-5-state', JSON.stringify(state)); }
+
+    function calcRiskDollar(){ return round2(state.balance * (state.riskPct/100)); }
+    function calcProfitDollar(){ return round2(calcRiskDollar() * state.rMultiple); }
+    function round2(n){ return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+    function calcWinRate(){
+      if(state.history.length === 0) return 0;
+      const wins = state.history.filter(h => h.result==='WIN').length;
+      return round2((wins / state.history.length) * 100);
+    }
+
+    function render(){
+      curBal.textContent = fmt(state.balance);
+      nextRisk.textContent = fmt(calcRiskDollar());
+      nextProfit.textContent = fmt(calcProfitDollar());
+      lastRes.textContent = state.lastResult ? state.lastResult : '—';
+      riskPctEcho.textContent = `${state.riskPct}%`;
+      tpEcho.textContent = `${state.rMultiple}R`;
+      winRateEl.textContent = calcWinRate() + '%';
+
+      startingBalance.value = state.balance.toFixed(2);
+      riskPct.value = state.riskPct;
+      rMultiple.value = state.rMultiple;
+      commission.value = state.fee.toFixed(2);
+
+      historyBody.innerHTML = state.history.map(row => `
+        <tr>
+          <td>${row.n}</td>
+          <td style="color:${row.result==='WIN'?'#59d185':'#ff6b6b'}">${row.result}</td>
+          <td>${fmt(row.risk)}</td>
+          <td>${fmt(row.pl)}</td>
+          <td>${fmt(row.fee)}</td>
+          <td>${fmt(row.balance)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function applyFromInputs(reset=true){
+      const b = parseFloat(startingBalance.value||'0');
+      const rp = parseFloat(riskPct.value||'0');
+      const rm = parseFloat(rMultiple.value||'0');
+      const f = parseFloat(commission.value||'0');
+      state.balance = isFinite(b)? round2(b): 0;
+      state.riskPct = isFinite(rp)? round2(rp): 0;
+      state.rMultiple = isFinite(rm)? round2(rm): 0;
+      state.fee = isFinite(f)? round2(f): 0;
+      if(reset){ state.tradeCount = 0; state.lastResult = null; state.history = []; }
+      save(); render();
+    }
+
+    function pushHistory(result, risk, pl, fee, newBal){
+      state.tradeCount += 1;
+      state.lastResult = result;
+      state.history.push({ n: state.tradeCount, result, risk: round2(risk), pl: round2(pl), fee: round2(fee), balance: round2(newBal) });
+      save(); render();
+    }
+
+    function doWin(){
+      const risk$ = calcRiskDollar();
+      const profit$ = calcProfitDollar();
+      const newBal = round2(state.balance + profit$ - state.fee);
+      pushHistory('WIN', risk$, +profit$, state.fee, newBal);
+      state.balance = newBal;
+      save(); render();
+    }
+
+    function doLoss(){
+      const risk$ = calcRiskDollar();
+      const loss$ = -risk$;
+      const newBal = round2(state.balance + loss$ - state.fee);
+      pushHistory('LOSS', risk$, loss$, state.fee, newBal);
+      state.balance = newBal;
+      save(); render();
+    }
+
+    $('apply').addEventListener('click', ()=> applyFromInputs(true));
+    $('resetHistory').addEventListener('click', ()=> { state.history=[]; state.tradeCount=0; state.lastResult=null; save(); render(); });
+    $('winBtn').addEventListener('click', doWin);
+    $('lossBtn').addEventListener('click', doLoss);
+
+    render();
+  </script>
+</body>
+</html>
 
